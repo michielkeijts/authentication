@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
@@ -7,10 +9,10 @@
  * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
- * @link          https://cakephp.org CakePHP(tm) Project
- * @since         1.0.0
- * @license       https://opensource.org/licenses/mit-license.php MIT License
+ * @copyright Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
+ * @link https://cakephp.org CakePHP(tm) Project
+ * @since 1.0.0
+ * @license https://opensource.org/licenses/mit-license.php MIT License
  */
 namespace Authentication\Test\TestCase\Identifier\Resolver;
 
@@ -25,11 +27,11 @@ class OrmResolverTest extends AuthenticationTestCase
         $resolver = new OrmResolver();
 
         $user = $resolver->find([
-            'username' => 'mariano'
+            'username' => 'mariano',
         ]);
 
         $this->assertInstanceOf(EntityInterface::class, $user);
-        $this->assertEquals('mariano', $user['username']);
+        $this->assertSame('mariano', $user['username']);
     }
 
     public function testFindConfig()
@@ -38,12 +40,12 @@ class OrmResolverTest extends AuthenticationTestCase
             'userModel' => 'AuthUsers',
             'finder' => [
                 'all',
-                'auth' => ['return_created' => true]
-            ]
+                'auth' => ['return_created' => true],
+            ],
         ]);
 
         $user = $resolver->find([
-            'username' => 'mariano'
+            'username' => 'mariano',
         ]);
 
         $this->assertNotEmpty($user->created);
@@ -55,10 +57,10 @@ class OrmResolverTest extends AuthenticationTestCase
 
         $user = $resolver->find([
             'id' => 1,
-            'username' => 'mariano'
+            'username' => 'mariano',
         ]);
 
-        $this->assertEquals(1, $user['id']);
+        $this->assertSame(1, $user['id']);
     }
 
     public function testFindOr()
@@ -67,10 +69,10 @@ class OrmResolverTest extends AuthenticationTestCase
 
         $user = $resolver->find([
             'id' => 1,
-            'username' => 'luigiano'
+            'username' => 'luigiano',
         ], 'OR');
 
-        $this->assertEquals(1, $user['id']);
+        $this->assertSame(1, $user['id']);
     }
 
     public function testFindMissing()
@@ -79,7 +81,7 @@ class OrmResolverTest extends AuthenticationTestCase
 
         $user = $resolver->find([
             'id' => 1,
-            'username' => 'luigiano'
+            'username' => 'luigiano',
         ]);
 
         $this->assertNull($user);
@@ -92,10 +94,10 @@ class OrmResolverTest extends AuthenticationTestCase
         $user = $resolver->find([
             'username' => [
                 'luigiano',
-                'mariano'
-            ]
+                'mariano',
+            ],
         ]);
 
-        $this->assertEquals(1, $user['id']);
+        $this->assertSame(1, $user['id']);
     }
 }

@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
@@ -19,6 +21,7 @@ use Authentication\Identifier\IdentifierInterface;
 use Authentication\PasswordHasher\PasswordHasherTrait;
 use Authentication\UrlChecker\UrlCheckerTrait;
 use Cake\Http\Cookie\Cookie;
+use Cake\Http\Cookie\CookieInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
@@ -30,12 +33,11 @@ use RuntimeException;
  */
 class CookieAuthenticator extends AbstractAuthenticator implements PersistenceInterface
 {
-
     use PasswordHasherTrait;
     use UrlCheckerTrait;
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     protected $_defaultConfig = [
         'loginUrl' => null,
@@ -43,21 +45,16 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
         'rememberMeField' => 'remember_me',
         'fields' => [
             IdentifierInterface::CREDENTIAL_USERNAME => 'username',
-            IdentifierInterface::CREDENTIAL_PASSWORD => 'password'
+            IdentifierInterface::CREDENTIAL_PASSWORD => 'password',
         ],
         'cookie' => [
             'name' => 'CookieAuth',
-            'expire' => null,
-            'path' => '/',
-            'domain' => '',
-            'secure' => false,
-            'httpOnly' => false
         ],
-        'passwordHasher' => 'Authentication.Default'
+        'passwordHasher' => 'Authentication.Default',
     ];
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function __construct(IdentifierCollection $identifiers, array $config = [])
     {
@@ -71,7 +68,7 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
      *
      * @return void
      */
-    protected function _checkCakeVersion()
+    protected function _checkCakeVersion(): void
     {
         if (!class_exists(Cookie::class)) {
             throw new RuntimeException('Install CakePHP version >=3.5.0 to use the `CookieAuthenticator`.');
@@ -79,15 +76,15 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
-    public function authenticate(ServerRequestInterface $request, ResponseInterface $response)
+    public function authenticate(ServerRequestInterface $request): ResultInterface
     {
         $cookies = $request->getCookieParams();
         $cookieName = $this->getConfig('cookie.name');
         if (!isset($cookies[$cookieName])) {
             return new Result(null, Result::FAILURE_CREDENTIALS_MISSING, [
-                'Login credentials not found'
+                'Login credentials not found',
             ]);
         }
 
@@ -99,11 +96,11 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
 
         if ($token === null || count($token) !== 2) {
             return new Result(null, Result::FAILURE_CREDENTIALS_INVALID, [
-                'Cookie token is invalid.'
+                'Cookie token is invalid.',
             ]);
         }
 
-        list($username, $tokenHash) = $token;
+        [$username, $tokenHash] = $token;
 
         $identity = $this->_identifier->identify(compact('username'));
 
@@ -113,7 +110,7 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
 
         if (!$this->_checkToken($identity, $tokenHash)) {
             return new Result(null, Result::FAILURE_CREDENTIALS_INVALID, [
-                'Cookie token does not match'
+                'Cookie token does not match',
             ]);
         }
 
@@ -121,9 +118,9 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
-    public function persistIdentity(ServerRequestInterface $request, ResponseInterface $response, $identity)
+    public function persistIdentity(ServerRequestInterface $request, ResponseInterface $response, $identity): array
     {
         $field = $this->getConfig('rememberMeField');
         $bodyData = $request->getParsedBody();
@@ -131,7 +128,7 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
         if (!$this->_checkUrl($request) || !is_array($bodyData) || empty($bodyData[$field])) {
             return [
                 'request' => $request,
-                'response' => $response
+                'response' => $response,
             ];
         }
 
@@ -140,7 +137,7 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
 
         return [
             'request' => $request,
-            'response' => $response->withAddedHeader('Set-Cookie', $cookie->toHeaderValue())
+            'response' => $response->withAddedHeader('Set-Cookie', $cookie->toHeaderValue()),
         ];
     }
 
@@ -152,7 +149,7 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
      * @param array|\ArrayAccess $identity Identity data.
      * @return string
      */
-    protected function _createPlainToken($identity)
+    protected function _createPlainToken($identity): string
     {
         $usernameField = $this->getConfig('fields.username');
         $passwordField = $this->getConfig('fields.password');
@@ -168,7 +165,7 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
      * @param array|\ArrayAccess $identity Identity data.
      * @return string
      */
-    protected function _createToken($identity)
+    protected function _createToken($identity): string
     {
         $plain = $this->_createPlainToken($identity);
         $hash = $this->getPasswordHasher()->hash($plain);
@@ -185,7 +182,7 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
      * @param string $tokenHash Hashed part of a cookie token.
      * @return bool
      */
-    protected function _checkToken($identity, $tokenHash)
+    protected function _checkToken($identity, $tokenHash): bool
     {
         $plain = $this->_createPlainToken($identity);
 
@@ -193,15 +190,15 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
-    public function clearIdentity(ServerRequestInterface $request, ResponseInterface $response)
+    public function clearIdentity(ServerRequestInterface $request, ResponseInterface $response): array
     {
-        $cookie = $this->_createCookie(null)->withExpired();
+        $cookie = $this->_createCookie('')->withExpired();
 
         return [
             'request' => $request,
-            'response' => $response->withAddedHeader('Set-Cookie', $cookie->toHeaderValue())
+            'response' => $response->withAddedHeader('Set-Cookie', $cookie->toHeaderValue()),
         ];
     }
 
@@ -211,18 +208,27 @@ class CookieAuthenticator extends AbstractAuthenticator implements PersistenceIn
      * @param mixed $value Cookie value.
      * @return \Cake\Http\Cookie\CookieInterface
      */
-    protected function _createCookie($value)
+    protected function _createCookie($value): CookieInterface
     {
-        $data = $this->getConfig('cookie');
+        $options = $this->getConfig('cookie');
+        $name = $options['name'];
+        unset($options['name']);
 
-        $cookie = new Cookie(
-            $data['name'],
+        if (array_key_exists('expire', $options)) {
+            deprecationWarning('Config key `expire` is deprecated, use `expires` instead.');
+            $options['expires'] = $options['expire'];
+            unset($options['expire']);
+        }
+        if (array_key_exists('httpOnly', $options)) {
+            deprecationWarning('Config key `httpOnly` is deprecated, use `httponly` instead.');
+            $options['httponly'] = $options['httpOnly'];
+            unset($options['httpOnly']);
+        }
+
+        $cookie = Cookie::create(
+            $name,
             $value,
-            $data['expire'],
-            $data['path'],
-            $data['domain'],
-            $data['secure'],
-            $data['httpOnly']
+            $options
         );
 
         return $cookie;

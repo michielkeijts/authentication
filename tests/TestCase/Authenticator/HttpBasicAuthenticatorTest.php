@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
@@ -7,48 +9,45 @@
  * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
- * @link          https://cakephp.org CakePHP(tm) Project
- * @since         1.0.0
- * @license       https://opensource.org/licenses/mit-license.php MIT License
+ * @copyright Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
+ * @link https://cakephp.org CakePHP(tm) Project
+ * @since 1.0.0
+ * @license https://opensource.org/licenses/mit-license.php MIT License
  */
 namespace Authentication\Test\TestCase\Authenticator;
 
+use Authentication\Authenticator\AuthenticationRequiredException;
 use Authentication\Authenticator\HttpBasicAuthenticator;
-use Authentication\Authenticator\UnauthorizedException;
 use Authentication\Identifier\IdentifierCollection;
 use Authentication\Test\TestCase\AuthenticationTestCase as TestCase;
-use Cake\Http\Response;
 use Cake\Http\ServerRequestFactory;
 use Cake\I18n\Time;
 use Cake\ORM\TableRegistry;
 
 class HttpBasicAuthenticatorTest extends TestCase
 {
-
     /**
      * Fixtures
      *
      * @var array
      */
     public $fixtures = [
-        'core.auth_users',
-        'core.users'
+        'core.AuthUsers',
+        'core.Users',
     ];
 
     /**
-     * @inheritdoc
+     * @inheritDoc
      */
-    public function setUp()
+    public function setUp(): void
     {
         parent::setUp();
 
         $this->identifiers = new IdentifierCollection([
-           'Authentication.Password'
+           'Authentication.Password',
         ]);
 
         $this->auth = new HttpBasicAuthenticator($this->identifiers);
-        $this->response = new Response();
     }
 
     /**
@@ -62,11 +61,11 @@ class HttpBasicAuthenticatorTest extends TestCase
             'userModel' => 'AuthUser',
             'fields' => [
                 'username' => 'user',
-                'password' => 'password'
-            ]
+                'password' => 'password',
+            ],
         ]);
 
-        $this->assertEquals('AuthUser', $object->getConfig('userModel'));
+        $this->assertSame('AuthUser', $object->getConfig('userModel'));
         $this->assertEquals(['username' => 'user', 'password' => 'password'], $object->getConfig('fields'));
     }
 
@@ -83,7 +82,7 @@ class HttpBasicAuthenticatorTest extends TestCase
             ]
         );
 
-        $result = $this->auth->authenticate($request, $this->response);
+        $result = $this->auth->authenticate($request);
         $this->assertFalse($result->isValid());
     }
 
@@ -101,7 +100,7 @@ class HttpBasicAuthenticatorTest extends TestCase
             ]
         );
 
-        $result = $this->auth->authenticate($request, $this->response);
+        $result = $this->auth->authenticate($request);
         $this->assertFalse($result->isValid());
     }
 
@@ -119,7 +118,7 @@ class HttpBasicAuthenticatorTest extends TestCase
             ]
         );
 
-        $result = $this->auth->authenticate($request, $this->response);
+        $result = $this->auth->authenticate($request);
         $this->assertFalse($result->isValid());
     }
 
@@ -134,11 +133,11 @@ class HttpBasicAuthenticatorTest extends TestCase
             [
                 'REQUEST_URI' => '/posts/index',
                 'PHP_AUTH_USER' => '> 1',
-                'PHP_AUTH_PW' => "' OR 1 = 1"
+                'PHP_AUTH_PW' => "' OR 1 = 1",
             ]
         );
 
-        $result = $this->auth->authenticate($request, $this->response);
+        $result = $this->auth->authenticate($request);
         $this->assertFalse($result->isValid());
     }
 
@@ -160,11 +159,11 @@ class HttpBasicAuthenticatorTest extends TestCase
                 'REQUEST_URI' => '/posts/index',
                 'SERVER_NAME' => 'localhost',
                 'PHP_AUTH_USER' => '0',
-                'PHP_AUTH_PW' => 'password'
+                'PHP_AUTH_PW' => 'password',
             ],
             [
                 'user' => '0',
-                'password' => 'password'
+                'password' => 'password',
             ]
         );
 
@@ -174,9 +173,14 @@ class HttpBasicAuthenticatorTest extends TestCase
             'created' => new Time('2007-03-17 01:16:23'),
             'updated' => new Time('2007-03-17 01:18:31'),
         ];
-        $result = $this->auth->authenticate($request, $this->response);
+        $result = $this->auth->authenticate($request);
         $this->assertTrue($result->isValid());
-        $this->assertArraySubset($expected, $result->getData()->toArray());
+
+        $value = $result->getData()->toArray();
+        foreach ($expected as $key => $val) {
+            $this->assertArrayHasKey($key, $value);
+            $this->assertEquals($value[$key], $val);
+        }
     }
 
     /**
@@ -196,10 +200,10 @@ class HttpBasicAuthenticatorTest extends TestCase
         try {
             $this->auth->unauthorizedChallenge($request);
             $this->fail('Should challenge');
-        } catch (UnauthorizedException $e) {
+        } catch (AuthenticationRequiredException $e) {
             $expected = ['WWW-Authenticate' => 'Basic realm="localhost"'];
             $this->assertEquals($expected, $e->getHeaders());
-            $this->assertEquals(401, $e->getCode());
+            $this->assertSame(401, $e->getCode());
         }
     }
 
@@ -214,19 +218,24 @@ class HttpBasicAuthenticatorTest extends TestCase
             [
                 'REQUEST_URI' => '/posts/index',
                 'PHP_AUTH_USER' => 'mariano',
-                'PHP_AUTH_PW' => 'password'
+                'PHP_AUTH_PW' => 'password',
             ]
         );
 
-        $result = $this->auth->authenticate($request, $this->response);
+        $result = $this->auth->authenticate($request);
         $expected = [
             'id' => 1,
             'username' => 'mariano',
             'created' => new Time('2007-03-17 01:16:23'),
-            'updated' => new Time('2007-03-17 01:18:31')
+            'updated' => new Time('2007-03-17 01:18:31'),
         ];
 
         $this->assertTrue($result->isValid());
-        $this->assertArraySubset($expected, $result->getData()->toArray());
+
+        $value = $result->getData()->toArray();
+        foreach ($expected as $key => $val) {
+            $this->assertArrayHasKey($key, $value);
+            $this->assertEquals($value[$key], $val);
+        }
     }
 }

@@ -2,9 +2,9 @@
 #################################################
 /composer.lock
 /phpunit.xml
-/phpcs.xml
 /tmp
 /vendor
+.phpunit.result.cache
 
 # OS generated files #
 ######################

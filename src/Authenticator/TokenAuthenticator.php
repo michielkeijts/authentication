@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
@@ -15,7 +17,6 @@
 namespace Authentication\Authenticator;
 
 use Authentication\Identifier\IdentifierInterface;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
@@ -25,14 +26,13 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 class TokenAuthenticator extends AbstractAuthenticator implements StatelessInterface
 {
-
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     protected $_defaultConfig = [
         'header' => null,
         'queryParam' => null,
-        'tokenPrefix' => null
+        'tokenPrefix' => null,
     ];
 
     /**
@@ -41,7 +41,7 @@ class TokenAuthenticator extends AbstractAuthenticator implements StatelessInter
      * @param \Psr\Http\Message\ServerRequestInterface $request The request that contains login information.
      * @return string|null
      */
-    protected function getToken(ServerRequestInterface $request)
+    protected function getToken(ServerRequestInterface $request): ?string
     {
         $token = $this->getTokenFromHeader($request, $this->getConfig('header'));
         if ($token === null) {
@@ -63,7 +63,7 @@ class TokenAuthenticator extends AbstractAuthenticator implements StatelessInter
      * @param string $prefix Prefix to strip
      * @return string
      */
-    protected function stripTokenPrefix($token, $prefix)
+    protected function stripTokenPrefix(string $token, string $prefix): string
     {
         return str_ireplace($prefix . ' ', '', $token);
     }
@@ -72,10 +72,10 @@ class TokenAuthenticator extends AbstractAuthenticator implements StatelessInter
      * Gets the token from the request headers
      *
      * @param \Psr\Http\Message\ServerRequestInterface $request The request that contains login information.
-     * @param string $headerLine Header name
+     * @param string|null $headerLine Header name
      * @return string|null
      */
-    protected function getTokenFromHeader(ServerRequestInterface $request, $headerLine)
+    protected function getTokenFromHeader(ServerRequestInterface $request, ?string $headerLine): ?string
     {
         if (!empty($headerLine)) {
             $header = $request->getHeaderLine($headerLine);
@@ -88,33 +88,33 @@ class TokenAuthenticator extends AbstractAuthenticator implements StatelessInter
     }
 
     /**
-     * Gets the token from the request headers
+     * Gets the token from the request query
      *
      * @param \Psr\Http\Message\ServerRequestInterface $request The request that contains login information.
      * @param string $queryParam Request query parameter name
      * @return string|null
      */
-    protected function getTokenFromQuery(ServerRequestInterface $request, $queryParam)
+    protected function getTokenFromQuery(ServerRequestInterface $request, ?string $queryParam): ?string
     {
-        $queryParams = $request->getQueryParams();
-
-        if (empty($queryParams[$queryParam])) {
+        if (empty($queryParam)) {
             return null;
         }
 
-        return $queryParams[$queryParam];
+        $queryParams = $request->getQueryParams();
+
+        return $queryParams[$queryParam] ?? null;
     }
 
     /**
-     * Authenticates the identity contained in a request. Will use the `config.userModel`, and `config.fields`
-     * to find POST data that is used to find a matching record in the `config.userModel`. Will return false if
-     * there is no post data, either username or password is missing, or if the scope conditions have not been met.
+     * Authenticates the identity by token contained in a request.
+     * Token could be passed as query using `config.queryParam` or as header param using `config.header`. Token
+     * prefix will be stripped if `config.tokenPrefix` is set. Will return false if no token is provided or if the
+     * scope conditions have not been met.
      *
      * @param \Psr\Http\Message\ServerRequestInterface $request The request that contains login information.
-     * @param \Psr\Http\Message\ResponseInterface $response Unused response object.
      * @return \Authentication\Authenticator\ResultInterface
      */
-    public function authenticate(ServerRequestInterface $request, ResponseInterface $response)
+    public function authenticate(ServerRequestInterface $request): ResultInterface
     {
         $token = $this->getToken($request);
         if ($token === null) {
@@ -122,7 +122,7 @@ class TokenAuthenticator extends AbstractAuthenticator implements StatelessInter
         }
 
         $user = $this->_identifier->identify([
-            IdentifierInterface::CREDENTIAL_TOKEN => $token
+            IdentifierInterface::CREDENTIAL_TOKEN => $token,
         ]);
 
         if (empty($user)) {
@@ -138,7 +138,7 @@ class TokenAuthenticator extends AbstractAuthenticator implements StatelessInter
      * @param \Psr\Http\Message\ServerRequestInterface $request A request object.
      * @return void
      */
-    public function unauthorizedChallenge(ServerRequestInterface $request)
+    public function unauthorizedChallenge(ServerRequestInterface $request): void
     {
     }
 }

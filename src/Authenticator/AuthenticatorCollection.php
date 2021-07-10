@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
@@ -19,6 +21,9 @@ use Authentication\Identifier\IdentifierCollection;
 use Cake\Core\App;
 use RuntimeException;
 
+/**
+ * @method \Authentication\Authenticator\AuthenticatorInterface|null get(string $name)
+ */
 class AuthenticatorCollection extends AbstractCollection
 {
     /**
@@ -44,19 +49,20 @@ class AuthenticatorCollection extends AbstractCollection
     /**
      * Creates authenticator instance.
      *
-     * @param string $className Authenticator class.
+     * @param string $class Authenticator class.
      * @param string $alias Authenticator alias.
      * @param array $config Config array.
      * @return \Authentication\Authenticator\AuthenticatorInterface
      * @throws \RuntimeException
      */
-    protected function _create($className, $alias, $config)
+    protected function _create($class, string $alias, array $config): AuthenticatorInterface
     {
-        $authenticator = new $className($this->_identifiers, $config);
+        $authenticator = new $class($this->_identifiers, $config);
         if (!($authenticator instanceof AuthenticatorInterface)) {
             throw new RuntimeException(sprintf(
-                'Authenticator class `%s` must implement \Auth\Authentication\AuthenticatorInterface',
-                $className
+                'Authenticator class `%s` must implement `%s`.',
+                $class,
+                AuthenticatorInterface::class
             ));
         }
 
@@ -68,8 +74,9 @@ class AuthenticatorCollection extends AbstractCollection
      *
      * @param string $class Class name to be resolved.
      * @return string|null
+     * @psalm-return class-string|null
      */
-    protected function _resolveClassName($class)
+    protected function _resolveClassName($class): ?string
     {
         $className = App::className($class, 'Authenticator', 'Authenticator');
 
@@ -77,13 +84,12 @@ class AuthenticatorCollection extends AbstractCollection
     }
 
     /**
-     *
      * @param string $class Missing class.
      * @param string $plugin Class plugin.
      * @return void
      * @throws \RuntimeException
      */
-    protected function _throwMissingClassError($class, $plugin)
+    protected function _throwMissingClassError(string $class, ?string $plugin): void
     {
         $message = sprintf('Authenticator class `%s` was not found.', $class);
         throw new RuntimeException($message);

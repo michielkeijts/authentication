@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
@@ -7,10 +9,10 @@
  * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
- * @link          https://cakephp.org CakePHP(tm) Project
- * @since         1.0.0
- * @license       https://opensource.org/licenses/mit-license.php MIT License
+ * @copyright Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
+ * @link https://cakephp.org CakePHP(tm) Project
+ * @since 1.0.0
+ * @license https://opensource.org/licenses/mit-license.php MIT License
  */
 namespace Authentication\Test\TestCase\View\Helper;
 
@@ -56,22 +58,38 @@ class IdentityHelperTest extends TestCase
             'id' => 1,
             'username' => 'cakephp',
             'profile' => [
-                'first_name' => 'cake'
-            ]
+                'first_name' => 'cake',
+            ],
         ]);
         $request = (new ServerRequest())->withAttribute('identity', $identity);
         $view = new View($request);
 
         $helper = new IdentityHelper($view);
-        $this->assertEquals(1, $helper->get('id'));
-        $this->assertEquals('cake', $helper->get('profile.first_name'));
+        $this->assertSame(1, $helper->get('id'));
+        $this->assertSame('cake', $helper->get('profile.first_name'));
         $this->assertEquals($identity->getOriginalData(), $helper->get());
 
         $this->assertTrue($helper->isLoggedIn());
-        $this->assertEquals(1, $helper->getId());
+        $this->assertSame(1, $helper->getId());
 
         $this->assertTrue($helper->is(1));
         $this->assertFalse($helper->is(2));
+    }
+
+    public function testIdentityWithCustomAttribute()
+    {
+        $identity = new Identity([
+            'id' => 1,
+            'username' => 'cakephp',
+            'profile' => [
+                'first_name' => 'cake',
+            ],
+        ]);
+        $request = (new ServerRequest())->withAttribute('customIdentity', $identity);
+        $view = new View($request);
+
+        $helper = new IdentityHelper($view, ['identityAttribute' => 'customIdentity']);
+        $this->assertEquals($identity->getOriginalData(), $helper->get());
     }
 
     /**

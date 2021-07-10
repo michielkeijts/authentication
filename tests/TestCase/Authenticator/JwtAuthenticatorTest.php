@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
@@ -7,10 +9,10 @@
  * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
- * @link          https://cakephp.org CakePHP(tm) Project
- * @since         1.0.0
- * @license       https://opensource.org/licenses/mit-license.php MIT License
+ * @copyright Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
+ * @link https://cakephp.org CakePHP(tm) Project
+ * @since 1.0.0
+ * @license https://opensource.org/licenses/mit-license.php MIT License
  */
 namespace Authentication\Test\TestCase\Authenticator;
 
@@ -20,22 +22,20 @@ use Authentication\Authenticator\JwtAuthenticator;
 use Authentication\Authenticator\Result;
 use Authentication\Identifier\IdentifierCollection;
 use Authentication\Test\TestCase\AuthenticationTestCase as TestCase;
-use Cake\Http\Response;
 use Cake\Http\ServerRequestFactory;
 use Exception;
 use Firebase\JWT\JWT;
 
 class JwtAuthenticatorTest extends TestCase
 {
-
     /**
      * Fixtures
      *
      * @var array
      */
     public $fixtures = [
-        'core.auth_users',
-        'core.users'
+        'core.AuthUsers',
+        'core.Users',
     ];
 
     /**
@@ -53,22 +53,21 @@ class JwtAuthenticatorTest extends TestCase
     public $identifiers;
 
     /**
-     * {@inheritdoc}
+     * @inheritDoc
      */
-    public function setUp()
+    public function setUp(): void
     {
         parent::setUp();
 
         $data = [
-            'sub' => 3,
+            'subjectId' => 3,
             'id' => 3,
             'username' => 'larry',
-            'firstname' => 'larry'
+            'firstname' => 'larry',
         ];
 
         $this->token = JWT::encode($data, 'secretKey');
         $this->identifiers = new IdentifierCollection([]);
-        $this->response = new Response();
     }
 
     /**
@@ -84,12 +83,13 @@ class JwtAuthenticatorTest extends TestCase
         $this->request = $this->request->withAddedHeader('Authorization', 'Bearer ' . $this->token);
 
         $authenticator = new JwtAuthenticator($this->identifiers, [
-            'secretKey' => 'secretKey'
+            'secretKey' => 'secretKey',
+            'subjectKey' => 'subjectId',
         ]);
 
-        $result = $authenticator->authenticate($this->request, $this->response);
+        $result = $authenticator->authenticate($this->request);
         $this->assertInstanceOf(Result::class, $result);
-        $this->assertEquals(Result::SUCCESS, $result->getStatus());
+        $this->assertSame(Result::SUCCESS, $result->getStatus());
         $this->assertInstanceOf(ArrayAccess::class, $result->getData());
     }
 
@@ -106,12 +106,13 @@ class JwtAuthenticatorTest extends TestCase
         );
 
         $authenticator = new JwtAuthenticator($this->identifiers, [
-            'secretKey' => 'secretKey'
+            'secretKey' => 'secretKey',
+            'subjectKey' => 'subjectId',
         ]);
 
-        $result = $authenticator->authenticate($this->request, $this->response);
+        $result = $authenticator->authenticate($this->request);
         $this->assertInstanceOf(Result::class, $result);
-        $this->assertEquals(Result::SUCCESS, $result->getStatus());
+        $this->assertSame(Result::SUCCESS, $result->getStatus());
         $this->assertInstanceOf(ArrayAccess::class, $result->getData());
     }
 
@@ -131,23 +132,24 @@ class JwtAuthenticatorTest extends TestCase
         $this->identifiers->expects($this->once())
             ->method('identify')
             ->with([
-                'sub' => 3
+                'subjectId' => 3,
             ])
             ->willReturn(new ArrayObject([
-                'sub' => 3,
+                'subjectId' => 3,
                 'id' => 3,
                 'username' => 'larry',
-                'firstname' => 'larry'
+                'firstname' => 'larry',
             ]));
 
         $authenticator = new JwtAuthenticator($this->identifiers, [
             'secretKey' => 'secretKey',
-            'returnPayload' => false
+            'returnPayload' => false,
+            'subjectKey' => 'subjectId',
         ]);
 
-        $result = $authenticator->authenticate($this->request, $this->response);
+        $result = $authenticator->authenticate($this->request);
         $this->assertInstanceOf(Result::class, $result);
-        $this->assertEquals(Result::SUCCESS, $result->getStatus());
+        $this->assertSame(Result::SUCCESS, $result->getStatus());
         $this->assertInstanceOf(ArrayAccess::class, $result->getData());
     }
 
@@ -165,24 +167,22 @@ class JwtAuthenticatorTest extends TestCase
             ['token' => $this->token]
         );
 
-        $response = new Response();
-
         $authenticator = $this->getMockBuilder(JwtAuthenticator::class)
             ->setConstructorArgs([
-                $this->identifiers
+                $this->identifiers,
             ])
             ->setMethods([
-                'getPayLoad'
+                'getPayLoad',
             ])
             ->getMock();
 
-        $authenticator->expects($this->at(0))
+        $authenticator->expects($this->once())
             ->method('getPayLoad')
-            ->will($this->returnValue('no an object'));
+            ->willThrowException(new Exception());
 
-        $result = $authenticator->authenticate($request, $response);
+        $result = $authenticator->authenticate($request);
         $this->assertInstanceOf(Result::class, $result);
-        $this->assertEquals(Result::FAILURE_CREDENTIALS_INVALID, $result->getStatus());
+        $this->assertSame(Result::FAILURE_CREDENTIALS_INVALID, $result->getStatus());
         $this->assertNull($result->getData());
     }
 
@@ -198,24 +198,22 @@ class JwtAuthenticatorTest extends TestCase
             ['token' => $this->token]
         );
 
-        $response = new Response();
-
         $authenticator = $this->getMockBuilder(JwtAuthenticator::class)
             ->setConstructorArgs([
-                $this->identifiers
+                $this->identifiers,
             ])
             ->setMethods([
-                'getPayLoad'
+                'getPayLoad',
             ])
             ->getMock();
 
-        $authenticator->expects($this->at(0))
+        $authenticator->expects($this->once())
             ->method('getPayLoad')
             ->will($this->returnValue(new \stdClass()));
 
-        $result = $authenticator->authenticate($request, $response);
+        $result = $authenticator->authenticate($request);
         $this->assertInstanceOf(Result::class, $result);
-        $this->assertEquals(Result::FAILURE_CREDENTIALS_MISSING, $result->getStatus());
+        $this->assertSame(Result::FAILURE_CREDENTIALS_MISSING, $result->getStatus());
         $this->assertNUll($result->getData());
     }
 
@@ -227,12 +225,12 @@ class JwtAuthenticatorTest extends TestCase
         );
 
         $authenticator = new JwtAuthenticator($this->identifiers, [
-            'secretKey' => 'secretKey'
+            'secretKey' => 'secretKey',
         ]);
 
-        $result = $authenticator->authenticate($this->request, $this->response);
+        $result = $authenticator->authenticate($this->request);
         $this->assertInstanceOf(Result::class, $result);
-        $this->assertEquals(Result::FAILURE_CREDENTIALS_INVALID, $result->getStatus());
+        $this->assertSame(Result::FAILURE_CREDENTIALS_INVALID, $result->getStatus());
         $this->assertNUll($result->getData());
         $errors = $result->getErrors();
         $this->assertArrayHasKey('message', $errors);
@@ -253,19 +251,19 @@ class JwtAuthenticatorTest extends TestCase
         );
 
         $authenticator = new JwtAuthenticator($this->identifiers, [
-            'secretKey' => 'secretKey'
+            'secretKey' => 'secretKey',
         ]);
 
         $result = $authenticator->getPayload();
         $this->assertNull($result);
 
-        $authenticator->authenticate($this->request, $this->response);
+        $authenticator->authenticate($this->request);
 
         $expected = [
-            'sub' => 3,
+            'subjectId' => 3,
             'id' => 3,
             'username' => 'larry',
-            'firstname' => 'larry'
+            'firstname' => 'larry',
         ];
 
         $result = $authenticator->getPayload();

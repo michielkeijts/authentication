@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
@@ -7,12 +9,12 @@
  * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
- * @link          https://cakephp.org CakePHP(tm) Project
- * @since         1.0.0
- * @license       https://opensource.org/licenses/mit-license.php MIT License
+ * @copyright Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
+ * @link https://cakephp.org CakePHP(tm) Project
+ * @since 1.0.0
+ * @license https://opensource.org/licenses/mit-license.php MIT License
  */
-namespace Authentication\Test\TestCase\Identifier;
+namespace Authentication\Test\TestCase\Controller\Component;
 
 use Authentication\AuthenticationService;
 use Authentication\AuthenticationServiceInterface;
@@ -36,29 +38,53 @@ use TestApp\Authentication\InvalidAuthenticationService;
  */
 class AuthenticationComponentTest extends TestCase
 {
+    /**
+     * @var array|\ArrayAccess
+     */
+    protected $identityData;
 
     /**
-     * {@inheritDoc}
+     * @var \Authentication\Identity
      */
-    public function setUp()
+    protected $identity;
+
+    /**
+     * @var \Cake\Http\ServerRequest
+     */
+    protected $request;
+
+    /**
+     * @var \Cake\Http\Response
+     */
+    protected $response;
+
+    /**
+     * @var \Authentication\AuthenticationService
+     */
+    protected $service;
+
+    /**
+     * @inheritDoc
+     */
+    public function setUp(): void
     {
         parent::setUp();
 
         $this->identityData = new Entity([
             'username' => 'florian',
-            'profession' => 'developer'
+            'profession' => 'developer',
         ]);
 
         $this->identity = new Identity($this->identityData);
 
         $this->service = new AuthenticationService([
             'identifiers' => [
-                'Authentication.Password'
+                'Authentication.Password',
             ],
             'authenticators' => [
                 'Authentication.Session',
-                'Authentication.Form'
-            ]
+                'Authentication.Form',
+            ],
         ]);
 
         $this->request = ServerRequestFactory::fromGlobals(
@@ -71,34 +97,50 @@ class AuthenticationComponentTest extends TestCase
     }
 
     /**
-     * testInitializeMissingServiceAttribute
+     * testGetAuthenticationService
      *
-     * @expectedException \Exception
-     * @expectedExceptionMessage The request object does not contain the required `authentication` attribute
      * @return void
      */
-    public function testInitializeMissingServiceAttribute()
+    public function testGetAuthenticationService()
     {
-        $controller = new Controller($this->request, $this->response);
+        $service = new AuthenticationService();
+        $request = $this->request->withAttribute('authentication', $service);
+        $controller = new Controller($request, $this->response);
         $registry = new ComponentRegistry($controller);
         $component = new AuthenticationComponent($registry);
-        $component->startup();
+        $result = $component->getAuthenticationService();
+        $this->assertSame($service, $result);
     }
 
     /**
-     * testInitializeInvalidServiceObject
+     * testGetAuthenticationServiceMissingServiceAttribute
      *
-     * @expectedException \Exception
-     * @expectedExceptionMessage Authentication service does not implement Authentication\AuthenticationServiceInterface
      * @return void
      */
-    public function testInitializeInvalidServiceObject()
+    public function testGetAuthenticationServiceMissingServiceAttribute()
     {
+        $this->expectException('Exception');
+        $this->expectExceptionMessage('The request object does not contain the required `authentication` attribute');
+        $controller = new Controller($this->request, $this->response);
+        $registry = new ComponentRegistry($controller);
+        $component = new AuthenticationComponent($registry);
+        $component->getAuthenticationService();
+    }
+
+    /**
+     * testGetAuthenticationServiceInvalidServiceObject
+     *
+     * @return void
+     */
+    public function testGetAuthenticationServiceInvalidServiceObject()
+    {
+        $this->expectException('Exception');
+        $this->expectExceptionMessage('Authentication service does not implement Authentication\AuthenticationServiceInterface');
         $request = $this->request->withAttribute('authentication', new InvalidAuthenticationService());
         $controller = new Controller($request, $this->response);
         $registry = new ComponentRegistry($controller);
         $component = new AuthenticationComponent($registry);
-        $component->startup();
+        $component->getAuthenticationService();
     }
 
     /**
@@ -118,7 +160,7 @@ class AuthenticationComponentTest extends TestCase
 
         $result = $component->getIdentity();
         $this->assertInstanceOf(IdentityInterface::class, $result);
-        $this->assertEquals('florian', $result->username);
+        $this->assertSame('florian', $result->username);
     }
 
     /**
@@ -134,16 +176,16 @@ class AuthenticationComponentTest extends TestCase
         $controller = new Controller($this->request, $this->response);
         $registry = new ComponentRegistry($controller);
         $component = new AuthenticationComponent($registry, [
-            'identityAttribute' => 'customIdentity'
+            'identityAttribute' => 'customIdentity',
         ]);
 
         $result = $component->getIdentity();
         $this->assertInstanceOf(IdentityInterface::class, $result);
-        $this->assertEquals('florian', $result->username);
+        $this->assertSame('florian', $result->username);
     }
 
     /**
-     * testGetIdentity
+     * testSetIdentity
      *
      * @eturn void
      */
@@ -158,6 +200,61 @@ class AuthenticationComponentTest extends TestCase
         $component->setIdentity($this->identityData);
         $result = $component->getIdentity();
         $this->assertSame($this->identityData, $result->getOriginalData());
+    }
+
+    /**
+     * Test that the setIdentity() called with an identity instance sets
+     * this instance as a request attribute
+     *
+     * @eturn void
+     */
+    public function testSetIdentityInstance()
+    {
+        $request = $this->request->withAttribute('authentication', $this->service);
+
+        $controller = new Controller($request, $this->response);
+        $registry = new ComponentRegistry($controller);
+        $component = new AuthenticationComponent($registry);
+
+        $identity = new Identity($this->identityData);
+        $component->setIdentity($identity);
+        $result = $component->getIdentity();
+        $this->assertSame($identity, $result);
+    }
+
+    /**
+     * Ensure setIdentity() clears identity and persists identity data.
+     *
+     * @eturn void
+     */
+    public function testSetIdentityOverwrite()
+    {
+        $request = $this->request->withAttribute('authentication', $this->service);
+
+        $controller = new Controller($request, $this->response);
+        $registry = new ComponentRegistry($controller);
+        $component = new AuthenticationComponent($registry);
+
+        $component->setIdentity($this->identityData);
+        $result = $component->getIdentity();
+        $this->assertSame($this->identityData, $result->getOriginalData());
+        $this->assertSame(
+            $this->identityData->username,
+            $request->getSession()->read('Auth.username'),
+            'Session should be updated.'
+        );
+
+        // Replace the identity
+        $newIdentity = new Entity(['username' => 'jessie']);
+        $component->setIdentity($newIdentity);
+
+        $result = $component->getIdentity();
+        $this->assertSame($newIdentity, $result->getOriginalData());
+        $this->assertSame(
+            $newIdentity->username,
+            $request->getSession()->read('Auth.username'),
+            'Session should be updated.'
+        );
     }
 
     /**
@@ -176,18 +273,18 @@ class AuthenticationComponentTest extends TestCase
         $component = new AuthenticationComponent($registry);
 
         $result = $component->getIdentityData('profession');
-        $this->assertEquals('developer', $result);
+        $this->assertSame('developer', $result);
     }
 
     /**
      * testGetMissingIdentityData
      *
      * @eturn void
-     * @expectedException \RuntimeException
-     * @expectedExceptionMessage The identity has not been found.
      */
     public function testGetMissingIdentityData()
     {
+        $this->expectException('RuntimeException');
+        $this->expectExceptionMessage('The identity has not been found.');
         $request = $this->request->withAttribute('authentication', $this->service);
 
         $controller = new Controller($request, $this->response);
@@ -234,11 +331,32 @@ class AuthenticationComponentTest extends TestCase
         $registry = new ComponentRegistry($controller);
         $component = new AuthenticationComponent($registry);
 
-        $this->assertEquals('florian', $controller->request->getAttribute('identity')->username);
+        $this->assertSame('florian', $controller->getRequest()->getAttribute('identity')->username);
         $component->logout();
-        $this->assertNull($controller->request->getAttribute('identity'));
+        $this->assertNull($controller->getRequest()->getAttribute('identity'));
         $this->assertInstanceOf(Event::class, $result);
-        $this->assertEquals('Authentication.logout', $result->getName());
+        $this->assertSame('Authentication.logout', $result->getName());
+    }
+
+    /**
+     * test getLoginRedirect
+     *
+     * @eturn void
+     */
+    public function testGetLoginRedirect()
+    {
+        $this->service->setConfig('queryParam', 'redirect');
+        $request = $this->request
+            ->withAttribute('identity', $this->identity)
+            ->withAttribute('authentication', $this->service)
+            ->withQueryParams(['redirect' => 'ok/path?value=key']);
+
+        $controller = new Controller($request, $this->response);
+        $registry = new ComponentRegistry($controller);
+        $component = new AuthenticationComponent($registry);
+
+        $result = $component->getLoginRedirect();
+        $this->assertSame('/ok/path?value=key', $result);
     }
 
     /**
@@ -267,7 +385,7 @@ class AuthenticationComponentTest extends TestCase
         $controller->startupProcess();
 
         $this->assertInstanceOf(Event::class, $result);
-        $this->assertEquals('Authentication.afterIdentify', $result->getName());
+        $this->assertSame('Authentication.afterIdentify', $result->getName());
         $this->assertNotEmpty($result->getData());
         $this->assertInstanceOf(AuthenticatorInterface::class, $result->getData('provider'));
         $this->assertInstanceOf(IdentityInterface::class, $result->getData('identity'));
@@ -339,6 +457,7 @@ class AuthenticationComponentTest extends TestCase
         $controller->loadComponent('Authentication.Authentication');
 
         $this->expectException(UnauthenticatedException::class);
+        $this->expectExceptionCode(401);
         $controller->Authentication->allowUnauthenticated(['index', 'add']);
         $controller->startupProcess();
     }
@@ -358,6 +477,7 @@ class AuthenticationComponentTest extends TestCase
         $controller->loadComponent('Authentication.Authentication');
 
         $this->expectException(UnauthenticatedException::class);
+        $this->expectExceptionCode(401);
         $controller->startupProcess();
     }
 
@@ -374,12 +494,55 @@ class AuthenticationComponentTest extends TestCase
 
         $controller = new Controller($request, $this->response);
         $controller->loadComponent('Authentication.Authentication', [
-            'requireIdentity' => false
+            'requireIdentity' => false,
         ]);
 
         // Mismatched actions would normally cause an error.
         $controller->Authentication->allowUnauthenticated(['index', 'add']);
         $controller->startupProcess();
         $this->assertTrue(true, 'No exception should be raised as require identity is off.');
+    }
+
+    /**
+     * Test that the identity check can be run from callback for Controller.initialize
+     *
+     * @return void
+     */
+    public function testIdentityCheckInBeforeFilter()
+    {
+        $request = $this->request
+            ->withAttribute('authentication', $this->service);
+
+        $controller = new Controller($request, $this->response);
+        $registry = new ComponentRegistry($controller);
+        $component = new AuthenticationComponent($registry);
+
+        $this->expectException(UnauthenticatedException::class);
+        $this->expectExceptionMessage('Authentication is required to continue');
+        $this->expectExceptionCode(401);
+
+        $component->setConfig('identityCheckEvent', 'Controller.initialize');
+        $component->allowUnauthenticated(['index', 'add']);
+        $component->beforeFilter();
+    }
+
+    public function testCustomUnauthenticatedMessage()
+    {
+        $request = $this->request
+            ->withAttribute('authentication', $this->service);
+
+        $controller = new Controller($request, $this->response);
+        $registry = new ComponentRegistry($controller);
+        $component = new AuthenticationComponent($registry);
+
+        $errorMessage = 'You shall not pass!';
+        $this->expectException(UnauthenticatedException::class);
+        $this->expectExceptionMessage($errorMessage);
+        $this->expectExceptionCode(401);
+
+        $component->setConfig('identityCheckEvent', 'Controller.initialize');
+        $component->setConfig('unauthenticatedMessage', $errorMessage);
+        $component->allowUnauthenticated(['index', 'add']);
+        $component->beforeFilter();
     }
 }

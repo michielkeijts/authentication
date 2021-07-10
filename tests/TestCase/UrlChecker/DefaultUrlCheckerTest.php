@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
@@ -7,10 +9,10 @@
  * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
- * @link          https://cakephp.org CakePHP(tm) Project
- * @since         1.0.0
- * @license       https://opensource.org/licenses/mit-license.php MIT License
+ * @copyright Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
+ * @link https://cakephp.org CakePHP(tm) Project
+ * @since 1.0.0
+ * @license https://opensource.org/licenses/mit-license.php MIT License
  */
 namespace Authentication\Test\TestCase\UrlChecker;
 
@@ -23,7 +25,6 @@ use Cake\Http\ServerRequestFactory;
  */
 class DefaultUrlCheckerTest extends TestCase
 {
-
     /**
      * testCheckFailure
      *
@@ -57,7 +58,7 @@ class DefaultUrlCheckerTest extends TestCase
 
         $result = $checker->check($request, [
             '/users/login',
-            '/admin/login'
+            '/admin/login',
         ]);
         $this->assertTrue($result);
     }
@@ -76,13 +77,13 @@ class DefaultUrlCheckerTest extends TestCase
 
         $result = $checker->check($request, [
             '/users/login',
-            '/admin/login'
+            '/admin/login',
         ]);
         $this->assertTrue($result);
     }
 
     /**
-     * testCheckArray
+     * testCheckRegexp
      *
      * @return void
      */
@@ -94,13 +95,13 @@ class DefaultUrlCheckerTest extends TestCase
         );
 
         $result = $checker->check($request, '%^/[a-z]{2}/users/login/?$%', [
-            'useRegex' => true
+            'useRegex' => true,
         ]);
         $this->assertTrue($result);
     }
 
     /**
-     * testCheckArray
+     * testCheckFull
      *
      * @return void
      */
@@ -112,7 +113,28 @@ class DefaultUrlCheckerTest extends TestCase
         );
 
         $result = $checker->check($request, 'http://localhost/users/login', [
-            'checkFullUrl' => true
+            'checkFullUrl' => true,
+        ]);
+        $this->assertTrue($result);
+    }
+
+    /**
+     * testCheckBase
+     *
+     * @return void
+     */
+    public function testCheckBase()
+    {
+        $checker = new DefaultUrlChecker();
+        $request = ServerRequestFactory::fromGlobals(
+            ['REQUEST_URI' => '/users/login']
+        );
+        $uri = $request->getUri();
+        $uri->base = '/base';
+        $request = $request->withUri($uri);
+
+        $result = $checker->check($request, 'http://localhost/base/users/login', [
+            'checkFullUrl' => true,
         ]);
         $this->assertTrue($result);
     }
